@@ -58,7 +58,7 @@ An older image is not automatically a safe rollback after a data migration; requ
 or forward-recovery procedure. Keep privileged services and credentials isolated throughout rollout.
 
 Shared [brand](https://github.com/unset-sh/brand), [lexicons](https://github.com/unset-sh/lexicons) and
-[presentation](https://github.com/unset-sh/presentation) artifacts enter their consumers' builds. Deployment
+[rendering](https://github.com/unset-sh/rendering) artifacts enter their consumers' builds. Deployment
 selects those resulting releases rather than modifying bundled files at runtime. Automatic updates,
 approval gates and rollout monitoring need explicit implementation; none is enabled by this foundation.
 
