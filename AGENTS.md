@@ -2,18 +2,23 @@
 
 Every assistant working in this repository (Claude, Cursor, Codex or another) follows, in this order:
 
-1. [CLAUDE.md](CLAUDE.md): this repository's responsibility and local rules.
-2. The organisation's [rules](https://github.com/unset-sh/agent-kit/blob/ca8a1f6d28e13e258e043f0fb1a7ce52b42982c1/rules/org.md),
-   [working rules](https://github.com/unset-sh/agent-kit/blob/ca8a1f6d28e13e258e043f0fb1a7ce52b42982c1/rules/working.md) and
-   [engineering principles](https://github.com/unset-sh/agent-kit/blob/ca8a1f6d28e13e258e043f0fb1a7ce52b42982c1/rules/principles.md).
+1. [`CLAUDE.md`](CLAUDE.md): what this repository is for and its own rules.
+2. Every file in [`.claude/rules/org/`](.claude/rules/org/): the unset.sh organisation's rules. Tools that do
+   not load that folder by themselves must read it before starting work.
 
-This foundation has no installed `.claude/` copy or CI check yet. The links above pin the instructions read
-for the bootstrap; they are not an installed agent-kit copy and are not claimed to update automatically.
-Read all three files before starting work. Before designing boundaries or contracts, read the full
-[org-principles skill](https://github.com/unset-sh/agent-kit/blob/ca8a1f6d28e13e258e043f0fb1a7ce52b42982c1/skills/org-principles/SKILL.md).
-Before changing an organisation-wide decision, read
-[org-decisions](https://github.com/unset-sh/agent-kit/blob/ca8a1f6d28e13e258e043f0fb1a7ce52b42982c1/skills/org-decisions/SKILL.md).
-Use the applicable shared procedure when performing a recurring job.
+The procedures in `.claude/skills/org-*/SKILL.md` describe jobs that repeat across repositories, such as
+preparing a release. Read the one that fits before doing that job.
 
-When agent-kit is installed at a pinned commit, adopt its normal local rule/skill paths and lock-file checks
-in the same reviewed change. Do not hand-maintain copies of its rules or claim CI verification before it exists.
+Use these installed files as signposts rather than duplicating their instructions here:
+
+- [Organisation rules](.claude/rules/org/org.md): ownership and where AI working material belongs.
+- [Brand requests](.claude/skills/org-brand-request/SKILL.md): missing shared tokens or assets and provider handoffs.
+- [Map maintenance](.claude/skills/org-map-maintenance/SKILL.md): automatic map refresh and source review.
+- [Organisation decisions](.claude/skills/org-decisions/SKILL.md): accepted decisions and their history.
+- [Kit updates](.claude/skills/org-kit-update/SKILL.md): take the approved release containing a missing procedure.
+
+If a linked procedure is absent from the pinned kit, report the missing version and follow `org-kit-update`;
+do not create a replacement copy in this repository.
+
+Files under `.claude/rules/org/`, `.claude/skills/org-*/`, `.claude/agents/org-*` and `.claude/agent-kit/` are
+copies of a release of `unset-sh/agent-kit` and are checked by CI. Never edit them here.

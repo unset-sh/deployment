@@ -69,8 +69,9 @@ Read [CLAUDE.md](CLAUDE.md), [AGENTS.md](AGENTS.md) and the
 No validation, preview or deploy command exists yet. Add those commands, environment-specific checks and
 recovery documentation with the first real deployment definition. Do not add placeholder workflows.
 [Agent-kit](https://github.com/unset-sh/agent-kit) owns shared instructions and AI working artifacts;
-[docs](https://github.com/unset-sh/docs) publishes maintained guides authored here. Kit installation and
-documentation export are pending.
+[docs](https://github.com/unset-sh/docs) publishes maintained guides authored here. The kit is installed under
+`.claude/` at a pinned commit, and CI checks the copy with `bun .claude/agent-kit/sync.mjs --check`.
+Documentation export is pending.
 
 ## Licence
 

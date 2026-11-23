@@ -9,7 +9,8 @@ This is `unset-sh/deployment`: environment definitions, selected releases and st
 - **Does not belong here:** application code, image builds or migration definitions (`unset-sh/backend` and
   `unset-sh/web`); PDS image customization (`unset-sh/pds`); reusable automation implementation (`unset-sh/tooling`).
 - **Uses:** planned released backend/web/PDS images and upstream services such as Tap when adopted, through
-  reviewed immutable versions. Tooling and agent-kit adoption is pending. **Used by:** operators and environments.
+  reviewed immutable versions; `unset-sh/tooling` for the branch policy check and `unset-sh/agent-kit` as the copy
+  under `.claude/`, both at full commits. **Used by:** operators and environments.
 - **Licence:** AGPL-3.0-only first-party work; no outside code contributions for now. Third-party licences remain.
 
 Read the [organisation map](https://github.com/unset-sh/.github/blob/main/MAP.md) before moving responsibility.
@@ -35,5 +36,9 @@ map with `npm run map`, and update this section in the same piece of work.
 
 ## Commands
 
-No validation, preview, deployment, CI or agent-kit check command is installed. Add real commands and meaningful
-checks with the first environment definition; this repository does not yet operate any environment.
+```sh
+bun .claude/agent-kit/sync.mjs --check
+```
+
+No validation, preview or deployment command exists yet. Add real commands and meaningful checks with the first
+environment definition; this repository does not yet operate any environment.
