@@ -17,12 +17,18 @@ What it runs:
 | --- | --- | --- |
 | `postgres` | PostgreSQL 18. Its first start creates `migrator` and the `unset` database (`postgres/00-bootstrap.sh`). | `data` |
 | `migrate` | Backend's migrations as `migrator`, then the passwords of `backend` and `backend_auth`. Runs once and exits. | `data` |
+| `cerbos` | The Cerbos policy decision point. Backend asks it who may do what, over a Unix socket. It reads backend's policies from the backend image itself. | none |
 | `backend` | Backend's internal API, on port 8080 over mutual TLS. It reaches no port on this machine. | `internal`, `data`, `egress` |
 | `web` | The site, on `http://127.0.0.1:3000` of this machine only. | `internal`, `published` |
 
 `internal` joins only web and backend (Alex, 2026-11-24), and `data` only backend, migrate and Postgres. Both are
 internal Docker networks, with no way out. Backend reaches the internet through `egress` for handles, DID documents
 and the member's PDS. Any PDS can sign in, so the stack runs none of its own.
+
+`cerbos` is on no network at all. It shares only a memory-backed volume with backend, holding its socket, which only
+the user both run as can open. Its policies come from the same backend image digest, mounted read-only, so the code
+and its policies always match. This needs a Docker Engine and Compose that support image mounts (checked on Docker
+29.9.3 with Compose 5.7.1).
 
 It runs with `UNSET_ENV=dev`. This slice signs in with atproto's loopback client, whose redirect must be on
 `127.0.0.1`, and web allows a plain-HTTP public origin only in dev. Web and backend still speak only mutual TLS,
@@ -69,7 +75,7 @@ LOCAL_SECRETS=~/.unset/local docker compose up -d
 LOCAL_SECRETS=~/.unset/local docker compose ps
 ```
 
-All four services should be `running (healthy)`, except `migrate`, which shows `exited (0)`. Then open
+All five services should be `running (healthy)`, except `migrate`, which shows `exited (0)`. Then open
 <http://127.0.0.1:3000> and sign in with a handle. Use `127.0.0.1`, not `localhost`: the OAuth redirect and the
 host check both name `127.0.0.1`.
 

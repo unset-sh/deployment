@@ -1,0 +1,20 @@
+# The Cerbos PDP's configuration (agent-kit org-0018, org-0019; Cerbos 0.57.0 docs/modules/configuration/pages at
+# tag v0.57.0: server.adoc, storage.adoc, telemetry.adoc). It serves only on Unix sockets in the volume it shares
+# with backend, reads backend's policies from the image mount at /policies, and sends nothing anywhere.
+server:
+  httpListenAddr: "unix:/sock/http.sock"
+  grpcListenAddr: "unix:/sock/grpc.sock"
+  # Only the socket's owner, the uid backend and the PDP share, may connect.
+  udsFileMode: 0o600
+  adminAPI:
+    enabled: false
+storage:
+  driver: disk
+  disk:
+    directory: /policies
+    # The mount is read-only and changes only with a new backend image, which restarts the stack.
+    watchForChanges: false
+telemetry:
+  disabled: true
+audit:
+  enabled: false
