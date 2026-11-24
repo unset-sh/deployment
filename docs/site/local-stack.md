@@ -34,6 +34,15 @@ built yet.
 You need Docker with Compose v2, OpenSSL, and the staging certificate set from `scripts/internal-tls.sh`
 ([Web to backend TLS](internal-tls.md)) made for the host name `backend`.
 
+The staging images are built for amd64 only (Alex, 2026-11-24). On an Apple Silicon Mac, run them under Rosetta 2,
+not QEMU: under QEMU, Bun stops at start with `StackOverflow: failed to load bunfig`. With Colima (v0.5.3 or later,
+macOS 13 or later), start the VM with Rosetta, as the [Colima README](https://github.com/abiosoft/colima#readme)
+describes:
+
+```sh
+colima start --vm-type=vz --vz-rosetta
+```
+
 1. Make the secret files in a new folder outside every repository. The script writes the Postgres passwords, the
    seal keyring and the Better Auth secret, and copies the six certificate and key files web and backend use from
    the staging set (never its CA keys). It refuses a folder inside a git repository and a folder that is not empty:
