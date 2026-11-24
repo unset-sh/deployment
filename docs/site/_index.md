@@ -15,8 +15,8 @@ params:
 topology, networks, volumes and service wiring, the selected immutable images, runtime configuration references,
 rollout order, readiness checks and recovery procedures.
 
-**Status: repository foundation only.** No infrastructure definitions, live environment, image selections or
-deployment workflows exist here yet. Nothing is deployable from this repository.
+**Status: a local stack only.** [The local stack](local-stack.md) runs the staging images of web and backend with
+Postgres on one machine. No live environment or deployment workflow exists here yet.
 
 ## Boundaries
 
