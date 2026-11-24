@@ -1,0 +1,176 @@
+# The local stack: the staging images of backend and web, with Postgres, on one machine, to try the first slice (sign
+# in with an AT Proto handle, see the profile, change the display name, sign out) before staging runs it. The runbook
+# is docs/site/local-stack.md; Alex starts it by hand.
+#
+# - UNSET_ENV is dev. This slice signs in with atproto's loopback client, whose redirect must be on 127.0.0.1
+#   (backend src/config.ts LOOPBACK_ORIGIN; https://atproto.com/specs/oauth, "Localhost Client Development"), and web
+#   allows a plain-http public origin only in dev. A public origin needs the confidential client, not built yet.
+# - Web and backend still speak only mutual TLS (Alex, 2026-11-24), with the staging set made by
+#   scripts/internal-tls.sh for the host name `backend`, on `internal`, a network only the two of them join.
+# - Every image is pinned by digest: the staging images CI built and attested (verify them as the runbook says before
+#   the first start), and the official postgres:18 that backend's CI tests against.
+# - Each service runs as the image's non-root user on a read-only root, with every capability dropped.
+# - The secret files come from one folder outside every repository, named by LOCAL_SECRETS, which
+#   scripts/local-secrets.sh writes (with a copy of the staging certificates and keys web and backend use). Nothing
+#   secret is in this file or in an image.
+name: unset-local
+
+services:
+  postgres:
+    image: postgres:18@sha256:f5cbc081c25690710f3fc6f4c61a7565382bae01ca0d0f2028a53d7926b85a20
+    user: "999:999"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /var/run/postgresql:uid=999,gid=999,mode=0755
+      - /tmp:uid=999,gid=999,mode=1777
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./postgres:/docker-entrypoint-initdb.d:ro
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_superuser_password
+    secrets: [pg_superuser_password, pg_migrator_password]
+    healthcheck:
+      test: ["CMD", "pg_isready", "--username", "postgres", "--dbname", "unset"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [data]
+    mem_limit: 1g
+    pids_limit: 256
+    restart: unless-stopped
+
+  # Backend's migrations as `migrator`, then the runtime roles' passwords (backend src/adapters/postgres/roles.ts).
+  migrate:
+    image: ghcr.io/unset-sh/staging/backend@sha256:3f53dcbc6903714cc96780ac73fc7937efe5f24a9611c951d95cd3489e722de1
+    entrypoint: ["bun"]
+    command: ["src/adapters/postgres/migrate-cli.ts"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      UNSET_ENV: dev
+      UNSET_COMMIT: 2a32957db402669aae3da0c207a0a04e31a1a21e
+      PG_HOST: postgres
+      PG_DATABASE: unset
+      PG_USER: migrator
+      PG_PASSWORD_FILE: /run/secrets/pg_migrator_password
+      PG_SSLMODE: disable
+    secrets: [pg_migrator_password, pg_backend_password, pg_backend_auth_password]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [data]
+    mem_limit: 256m
+    pids_limit: 64
+    restart: "no"
+
+  backend:
+    image: ghcr.io/unset-sh/staging/backend@sha256:3f53dcbc6903714cc96780ac73fc7937efe5f24a9611c951d95cd3489e722de1
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      UNSET_ENV: dev
+      UNSET_SERVICE: backend
+      UNSET_COMMIT: 2a32957db402669aae3da0c207a0a04e31a1a21e
+      LISTEN_PORT: "8080"
+      PG_HOST: postgres
+      PG_DATABASE: unset
+      PG_USER: backend
+      PG_PASSWORD_FILE: /run/secrets/pg_backend_password
+      PG_SSLMODE: disable
+      PG_POOL_MAX: "5"
+      PG_AUTH_PASSWORD_FILE: /run/secrets/pg_backend_auth_password
+      SEAL_KEYRING_FILE: /run/secrets/seal_keyring
+      BETTER_AUTH_SECRET_FILE: /run/secrets/better_auth_secret
+      WEB_ORIGIN: http://127.0.0.1:3000
+      INTERNAL_TLS_CERT_FILE: /run/secrets/backend_tls_cert
+      INTERNAL_TLS_KEY_FILE: /run/secrets/backend_tls_key
+      INTERNAL_TLS_CLIENT_CA_FILE: /run/secrets/backend_tls_client_ca
+    secrets:
+      - pg_backend_password
+      - pg_backend_auth_password
+      - seal_keyring
+      - better_auth_secret
+      - backend_tls_cert
+      - backend_tls_key
+      - backend_tls_client_ca
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # `internal` to web; `data` to Postgres; `egress` to the internet, for handles, DID documents and the member's PDS.
+    networks: [internal, data, egress]
+    mem_limit: 512m
+    pids_limit: 128
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/unset-sh/staging/web@sha256:69e746ecc4651db95452fe9fd8cecfc6c7bb5fc617a7433191c46a7161459ad5
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      UNSET_ENV: dev
+      UNSET_SERVICE: web
+      UNSET_COMMIT: ceef5eeb3923f55fb9e1b374698e2e239d875efc
+      LISTEN_PORT: "3000"
+      PUBLIC_ORIGIN: http://127.0.0.1:3000
+      HTTP_ALLOWED_HOSTS: 127.0.0.1
+      TRUSTED_PROXY_MODE: socket
+      BACKEND_URL: https://backend:8080
+      BACKEND_TLS_CERT_FILE: /run/secrets/web_tls_cert
+      BACKEND_TLS_KEY_FILE: /run/secrets/web_tls_key
+      BACKEND_TLS_CA_FILE: /run/secrets/web_tls_ca
+    secrets: [web_tls_cert, web_tls_key, web_tls_ca]
+    depends_on:
+      backend:
+        condition: service_healthy
+    # The browser reaches web on this machine's loopback only; `published` is a network of web's alone, because Docker
+    # publishes no port from a network marked internal.
+    ports:
+      - 127.0.0.1:3000:3000
+    networks: [internal, published]
+    mem_limit: 512m
+    pids_limit: 128
+    restart: unless-stopped
+
+networks:
+  # Web and backend, and nothing else (Alex, 2026-11-24: they speak only over a private Docker network).
+  internal:
+    internal: true
+  # Backend, migrate and Postgres.
+  data:
+    internal: true
+  egress:
+  published:
+
+volumes:
+  pgdata:
+
+secrets:
+  pg_superuser_password:
+    file: ${LOCAL_SECRETS:?set LOCAL_SECRETS to the folder scripts/local-secrets.sh wrote}/pg_superuser_password
+  pg_migrator_password:
+    file: ${LOCAL_SECRETS:?}/pg_migrator_password
+  pg_backend_password:
+    file: ${LOCAL_SECRETS:?}/pg_backend_password
+  pg_backend_auth_password:
+    file: ${LOCAL_SECRETS:?}/pg_backend_auth_password
+  seal_keyring:
+    file: ${LOCAL_SECRETS:?}/seal_keyring
+  better_auth_secret:
+    file: ${LOCAL_SECRETS:?}/better_auth_secret
+  backend_tls_cert:
+    file: ${LOCAL_SECRETS:?}/backend.crt
+  backend_tls_key:
+    file: ${LOCAL_SECRETS:?}/backend.key
+  backend_tls_client_ca:
+    file: ${LOCAL_SECRETS:?}/client-ca.crt
+  web_tls_cert:
+    file: ${LOCAL_SECRETS:?}/web.crt
+  web_tls_key:
+    file: ${LOCAL_SECRETS:?}/web.key
+  web_tls_ca:
+    file: ${LOCAL_SECRETS:?}/server-ca.crt
