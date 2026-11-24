@@ -42,8 +42,21 @@ The second argument is the host name web uses to reach backend on the private ne
 valid for that name only. The output folder must be new or empty, and outside every git repository: the script
 refuses anything else, so the keys cannot be committed by accident.
 
-Then place each file as a secret file for its service, as the table says. The settings that read them come with the
-backend and web changes that turn TLS on; their own docs name them.
+Then place each file as a secret file for its service and point its setting at it:
+
+| Service | Setting | File |
+| --- | --- | --- |
+| Backend | `INTERNAL_TLS_CERT_FILE` | `backend.crt` |
+| Backend | `INTERNAL_TLS_KEY_FILE` | `backend.key` |
+| Backend | `INTERNAL_TLS_CLIENT_CA_FILE` | `client-ca.crt` |
+| Web | `BACKEND_URL` | `https://<backend host>:<port>`, with the host the set was made for |
+| Web | `BACKEND_TLS_CERT_FILE` | `web.crt` |
+| Web | `BACKEND_TLS_KEY_FILE` | `web.key` |
+| Web | `BACKEND_TLS_CA_FILE` | `server-ca.crt` |
+
+Each service refuses to start outside `dev` and `test` without all of its files, and with only some of them in any
+environment. Under TLS, backend's image health check uses a separate plain-HTTP probe on loopback only
+(`PROBE_PORT`, default 8081), which answers `/health` and nothing else.
 
 ## Renew the certificates
 
