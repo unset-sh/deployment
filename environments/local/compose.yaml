@@ -8,7 +8,9 @@
 # - Web and backend still speak only mutual TLS (Alex, 2026-11-24), with the staging set made by
 #   scripts/internal-tls.sh for the host name `backend`, on `internal`, a network only the two of them join.
 # - Every image is pinned by digest: the staging images CI built and attested (verify them as the runbook says before
-#   the first start), and the official postgres:18 that backend's CI tests against.
+#   the first start), the official postgres:18 that backend's CI tests against, and RustFS 1.0.6. RustFS replaces
+#   SeaweedFS. One bucket, `unset`, holds member media and PDS blobs. This machine runs Docker. Staging and
+#   production run the same image under Podman, whose tmpfs mounts do not take Docker's uid option.
 # - Each service runs as the image's non-root user on a read-only root, with every capability dropped.
 # - The secret files come from one folder outside every repository, named by LOCAL_SECRETS, which
 #   scripts/local-secrets.sh writes (with a copy of the staging certificates and keys web and backend use). Nothing
@@ -39,6 +41,42 @@ services:
     networks: [data]
     mem_limit: 1g
     pids_limit: 256
+    restart: unless-stopped
+
+  # RustFS 1.0.6 (docker.io/rustfs/rustfs, pulled 2026-11-26; Apache-2.0). The image user is rustfs, uid 10001
+  # (Dockerfile at tag 1.0.6). entrypoint.sh reads RUSTFS_ACCESS_KEY_FILE and RUSTFS_SECRET_KEY_FILE, and when
+  # buckets.json names a bucket it creates that bucket after /health/ready. The file here names `unset` only.
+  # The console stays off the published ports: this service publishes nothing, and it joins `data` alone among
+  # the store's listeners. /logs and /tmp are tmpfs because the root is read-only and the entrypoint writes both.
+  rustfs:
+    image: docker.io/rustfs/rustfs:1.0.6@sha256:c4ad0e767fbf4d56ed4ddbd33bd80b7f6de8ead6fdca0e0556c727d6d7215c14
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /logs:uid=10001,gid=10001,mode=0750
+      - /tmp:uid=10001,gid=10001,mode=1777
+    volumes:
+      - rustfsdata:/data
+      - ./rustfs/buckets.json:/etc/rustfs/bootstrap/buckets.json:ro
+    environment:
+      RUSTFS_ACCESS_KEY_FILE: /run/secrets/rustfs_access_key
+      RUSTFS_SECRET_KEY_FILE: /run/secrets/rustfs_secret_key
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ENABLE: "false"
+      RUSTFS_VOLUMES: /data
+      RUSTFS_OBS_LOG_DIRECTORY: /logs
+      RUSTFS_BOOTSTRAP_ENDPOINT: http://127.0.0.1:9000
+    secrets: [rustfs_access_key, rustfs_secret_key]
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:9000/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [data]
+    mem_limit: 512m
+    pids_limit: 128
     restart: unless-stopped
 
   # Backend's migrations as `migrator`, then the runtime roles' passwords (backend src/adapters/postgres/roles.ts).
@@ -140,7 +178,7 @@ networks:
   # Web and backend, and nothing else (Alex, 2026-11-24: they speak only over a private Docker network).
   internal:
     internal: true
-  # Backend, migrate and Postgres.
+  # Backend, migrate, Postgres and RustFS.
   data:
     internal: true
   egress:
@@ -148,6 +186,7 @@ networks:
 
 volumes:
   pgdata:
+  rustfsdata:
 
 secrets:
   pg_superuser_password:
@@ -174,3 +213,7 @@ secrets:
     file: ${LOCAL_SECRETS:?}/web.key
   web_tls_ca:
     file: ${LOCAL_SECRETS:?}/server-ca.crt
+  rustfs_access_key:
+    file: ${LOCAL_SECRETS:?}/rustfs_access_key
+  rustfs_secret_key:
+    file: ${LOCAL_SECRETS:?}/rustfs_secret_key

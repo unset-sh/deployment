@@ -1,6 +1,6 @@
 #!/bin/sh
-# The secret files of the local stack (environments/local/compose.yaml): Postgres passwords, the seal keyring and the
-# Better Auth secret, each random and made on this machine. Alex runs this by hand; an assistant never does (agent-kit
+# The secret files of the local stack (environments/local/compose.yaml): Postgres passwords, the RustFS root keys, the
+# seal keyring and the Better Auth secret, each random and made on this machine. Alex runs this by hand; an assistant never does (agent-kit
 # rules/org.md, "Keys, tokens and secrets"). The runbook is docs/site/local-stack.md. Needs OpenSSL.
 #
 #   scripts/local-secrets.sh <tls-dir> <out-dir>
@@ -39,6 +39,8 @@ password pg_migrator_password
 password pg_backend_password
 password pg_backend_auth_password
 password better_auth_secret
+password rustfs_access_key
+password rustfs_secret_key
 # One seal key (backend src/adapters/seal/keyring.ts: kid, then 32 bytes in padded base64).
 printf '{"active":"k1","keys":{"k1":"%s"}}\n' "$(openssl rand -base64 32)" >"$OUT/seal_keyring"
 # The TLS files, copied rather than mounted from <tls-dir>, so their modes below apply to the copies only.
