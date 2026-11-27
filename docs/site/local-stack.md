@@ -16,11 +16,12 @@ What it runs:
 | Service | What it does | Networks |
 | --- | --- | --- |
 | `postgres` | PostgreSQL 18. Its first start creates `migrator` and the `unset` database (`postgres/00-bootstrap.sh`). | `data` |
+| `rustfs` | RustFS 1.0.6, the object store. One bucket, `unset`, for member media and PDS blobs. It publishes no port. | `data` |
 | `migrate` | Backend's migrations as `migrator`, then the passwords of `backend` and `backend_auth`. Runs once and exits. | `data` |
 | `backend` | Backend's internal API, on port 8080 over mutual TLS. It reaches no port on this machine. | `internal`, `data`, `egress` |
 | `web` | The site, on `http://127.0.0.1:3000` of this machine only. | `internal`, `published` |
 
-`internal` joins only web and backend (Alex, 2026-11-24), and `data` only backend, migrate and Postgres. Both are
+`internal` joins only web and backend (Alex, 2026-11-24), and `data` only backend, migrate, Postgres and RustFS. Both are
 internal Docker networks, with no way out. Backend reaches the internet through `egress` for handles, DID documents
 and the member's PDS. Any PDS can sign in, so the stack runs none of its own.
 
@@ -35,7 +36,7 @@ You need Docker with Compose v2, OpenSSL, and the staging certificate set from `
 ([Web to backend TLS](internal-tls.md)) made for the host name `backend`.
 
 1. Make the secret files in a new folder outside every repository. The script writes the Postgres passwords, the
-   seal keyring and the Better Auth secret, and copies the six certificate and key files web and backend use from
+   RustFS access key and secret, the seal keyring and the Better Auth secret, and copies the six certificate and key files web and backend use from
    the staging set (never its CA keys). It refuses a folder inside a git repository and a folder that is not empty:
 
    ```sh
@@ -69,7 +70,7 @@ LOCAL_SECRETS=~/.unset/local docker compose up -d
 LOCAL_SECRETS=~/.unset/local docker compose ps
 ```
 
-All four services should be `running (healthy)`, except `migrate`, which shows `exited (0)`. Then open
+`postgres`, `rustfs`, `backend` and `web` should be `running (healthy)`. `migrate` shows `exited (0)`. Then open
 <http://127.0.0.1:3000> and sign in with a handle. Use `127.0.0.1`, not `localhost`: the OAuth redirect and the
 host check both name `127.0.0.1`.
 
